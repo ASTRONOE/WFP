@@ -1,0 +1,6 @@
+*.env
+__pycache__/
+.virtual_documents/
+.streamlit/
+.ipynb_checkpoints/
+*.ipynb
