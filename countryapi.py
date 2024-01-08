@@ -89,12 +89,25 @@ def put_DB(data:str):
       logger.error(f'Could not insert {data} into database')
 
 def worldmap():
+  """
+  A shapefile comprising of a glabal geographical of countries and several features.
+  It will be used to get global data.
+  Returns:
+  A geopandas dataframe featuring complex geographical data 
+  """
+  # get access to the drive
   key = Deta(key2)
+  #open the drive
   dmap = key.Drive('GeoJSON')
+  #get the shapefile. It is a geojson file
   response = dmap.get('worldmap.json')
+  #open the data
   content = response.read()
+  #decode the data
   decoded = content.decode('utf-8')
+  #format the data as a string
   decoded_df = StringIO(decoded)
+  #read it as a dataframe
   return gpd.read_file(decoded_df)
         
 class CountryData:
@@ -103,7 +116,7 @@ class CountryData:
 
   Attributes:
   - base (deta.Base): The database instance.
-  - dmap (deta.Drive): The map file storage.
+  - maps (deta.Drive): The map file storage.
 
   Methods:
   - get_DB(): Utilizes the GET method to retrieve data from the database using the key.
@@ -113,24 +126,76 @@ class CountryData:
   - get_country_code(): Retrieves the country code from the database record.
   """
   def __init__(self, key:str):
-    
+    #open the database
     detas = Deta(key1)
     detam = Deta(key2)
-    
-    self.key = key #key to database record 
+    #access the content of the wfp data and shapefiles
+    self.__key = key #key to database record 
     self.base = detas.Base('WFPDatabase')
     self.maps = detam.Drive('GeoJSON')
     fetch = self.base.fetch().items
-    assert self.key in [item['key'] for _, item in enumerate(fetch)], f"Not found. Unknown key" 
+    #ensure that the key input is valid
+    assert key in [item['key'] for _, item in enumerate(fetch)], f"Not found. Unknown key"
       
-  def get_DB(self):
+  def __get_DB(self):
     """
     Utilises the GET method in order to get a data from the database using the key.
     Returns:
     A collection of information about the record as a dictionary
     """
-    return self.base.get(self.key)  
-  
+    key = self.__key
+    return self.base.get(key)
+
+  #private static method to get data from different countries
+  @classmethod
+  def __get_some_DB(cls, iso_request):
+    """
+    Retrieves data from the WFP database based on a list of ISO codes.
+
+    Parameters:
+    iso_request (list): A list of ISO codes for the requested countries.
+
+    Returns:
+    list: A list of dictionaries containing data for the requested countries from the database.
+    """
+    #open database and access all items
+    detas = Deta(key1)
+    base = detas.Base('WFPDatabase')
+    fetch = base.fetch().items
+    #convert requested list into set
+    iso = set(iso_request)
+    #get set of country ISOs in the database
+    isolist = set([item['Country_id'] for _, item in enumerate(fetch)])
+    #ensure that all requested ISOs are also inside the database
+    country_iso = iso & isolist
+    #fetch data of the requested ISOs
+    data = []
+    for name in list(country_iso):
+      data.extend([item for item in fetch if item['Country_id'] == name])
+    return data
+    
+  #static method to return data as objects 
+  @classmethod
+  def get_some_countries(cls, iso):
+    """
+    Retrieves CountryData objects for specified ISO codes from the WFP database.
+
+    Parameters:
+    iso (list): A list of ISO codes for which CountryData objects are requested.
+
+    Returns:
+    list: A list of CountryData objects representing the specified countries.
+    """
+    #get requested data
+    data = cls.__get_some_DB(iso)
+    list_wfp = []
+    for d in data:
+    #represent everything as an object of CountryData
+      country_obj = CountryData(d['key'])
+      list_wfp.append(country_obj)
+    #put everything into a list of objects
+    return list_wfp
+
 
   #yield content from the dataset's download url
   def __get_data_from_link(self):
@@ -140,7 +205,7 @@ class CountryData:
     Yields:
     str: Content from the dataset's download URL in UTF-8 format.
     """
-    item = self.get_DB()
+    item = self.__get_DB()
     response = requests.get(url=item['Download_URL'], params={"downloadformat":"csv"})
     yield response.content.decode('utf-8')
       
@@ -169,7 +234,7 @@ class CountryData:
     Returns:
     pandas.DataFrame: DataFrame containing the fetched data.
     """
-    item = self.get_DB()
+    item = self.__get_DB()
     return item['Country_id']
   
   #Get dataset's reference period from hdx
@@ -180,7 +245,8 @@ class CountryData:
     Returns:
     dict: The reference period of the dataset.
     """
-    item = self.get_DB()
+    item = self.__get_DB()
+    
     read_item = Dataset.read_from_hdx(item['Name']) #get data from HDX
     read_item.set_expected_update_frequency('every week') #updated
     return read_item.get_reference_period()
@@ -206,9 +272,7 @@ class CountryData:
     """
     # Get list of json map files in the drive
     mapfiles = self.maps.list()['names']
-    country_code = self.get_DB()['Country_id']
-
-
+    country_code = __self.get_DB()['Country_id']
     # Iterate through the list of files
     for country_file in mapfiles:
       # Check if country is found, extract the content of the file using get()
@@ -231,3 +295,4 @@ class CountryData:
     map_df = StringIO(decoded)
     #geopandas dataframe
     return gpd.read_file(map_df)
+  

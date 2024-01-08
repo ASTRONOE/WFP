@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
-st_autofresh(interval=7000, key=isrunning)
+st_autofresh(interval=7000, key='isrunning')
 def main():
   #Set page config
   st.set_page_config(
@@ -22,10 +22,6 @@ def main():
     st.markdown('''---''')
     st.header("Exploring Worldwide Crop Prices: Tracking Trends And Variations Across Different Regions", divider='orange')
     st.markdown('''---''')
-
-
-      
-
 #Run  
 if __name__ == '__main__':
   main()
