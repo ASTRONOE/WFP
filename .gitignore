@@ -2,4 +2,11 @@
 .virtual_documents/
 __pycache__/
 .env
-app.iynb
+app.ipynb
+poetry.lock
+pyproject.toml
+.local/
+poetry.lock
+main.py
+pyproject.toml
+errors.log

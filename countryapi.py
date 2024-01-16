@@ -19,19 +19,11 @@ logger  = logging.getLogger(__name__)
 
 
 load_dotenv()
-key1 = os.getenv('DETA_PROJECT_KEY')
-key2 = os.getenv('GEOJSON_KEY')
+key1 = os.environ.get('DETA_PROJECT_KEY')
+key2 = os.environ.get('GEOJSON_KEY')
 
-def WFP():
-  key = Deta(key1)
-  detas = key.Drive("WFPFiles")
-  response = detas.get("wfp_countries_global_1.csv")
-  content = response.read()
-  decoded = content.decode('utf-8')
-  df = StringIO(decoded)
-  return pd.read_csv(df)
-
-df = WFP()
+wfp = pd.read_csv('assets/wfp_countries_global_1.csv')
+world = gpd.read_feather('assets/worldmap.feather') 
 
 def read_data_from_hdx(data:str):
   """
@@ -43,8 +35,8 @@ def read_data_from_hdx(data:str):
   Returns:
   An HDX object containing retrieved HDX information (if successful) and a dictionary containing specific data from the dataset related to the provided 'data'.
   """
-  #attempt to read data in the wfp hdx via df
-  assert data in df['directory'].values, f"Data '{data}' is not located inside the dataset"
+  #attempt to read data in the wfp hdx via wpf
+  assert data in wfp['directory'].values, f"Data '{data}' is not located inside the dataset"
   try:
     hdxinfo = Dataset.read_from_hdx(data) #read the data via the api
   except:
@@ -95,32 +87,6 @@ def put_DB(data:str):
     logger.info(f'Included {data} inside database')
   else:
     logger.error(f'Could not insert {data} into database')
-
-
-def worldmap():
-  """
-  A shapefile comprising of a global geographical of countries and several features.
-  It will be used to get global data.
-  Yields:
-  A geopandas dataframe featuring complex geographical data 
-  """
-  # get access to the drive
-  key = Deta(key2)
-  # open the drive
-  dmap = key.Drive('GeoJSON')
-  # get the shapefile. It is a geojson file
-  response = dmap.get('worldmap.json')
-  # open the data
-  content = response.read()
-  # decode the data
-  decoded = content.decode('utf-8')
-  # format the data as a string
-  decoded_df = StringIO(decoded)
-  # return the goo-dataframe
-  gdf = gpd.read_file(decoded_df)
-  #select the relevant columns
-  gdf_cols = gdf[['sovereignt', 'sov_a3', 'level', 'adm0_iso', 'admin', 'name', 'name_long', 'brk_a3', 'brk_name', 'abbrev', 'geometry']]
-  return gdf_cols
 
 
 class CountryData:
