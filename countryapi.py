@@ -1,5 +1,7 @@
 import logging
 import pandas as pd
+import datatable as dt
+from datatable import f
 import requests
 import geopandas as gpd
 import os
@@ -190,10 +192,25 @@ class CountryData:
     """
     gen = self.__get_data_from_link()
     for con in gen:
-        content = StringIO(con)
+      content = StringIO(con)
     df = pd.read_csv(content).drop(index=0)
     df = df.reset_index(drop=True)
     return df
+
+
+  def read_datatable(self):
+    """
+    Reads the fetched data as a pandas DataFrame.
+
+    Returns:
+    pandas.DataFrame: DataFrame containing the fetched data.
+    """
+    gen = self.__get_data_from_link()
+    for con in gen:
+      content = StringIO(con)
+    Dt = dt.fread(content)
+    return Dt
+
   
   #get country code
   def get_country_code(self):
@@ -205,6 +222,7 @@ class CountryData:
     """
     item = self.__get_DB()
     return item['Country_id']
+
   
   #Get dataset's reference period from hdx
   def get_ref_period(self):
