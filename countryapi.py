@@ -8,26 +8,26 @@ import os
 from dotenv import load_dotenv
 from io import StringIO
 from deta import Deta
-from hdx.utilities.easy_logging import setup_logging
-from hdx.api.configuration import Configuration
-from hdx.facades.simple import facade
-from hdx.data.dataset import Dataset
+# hdx.data.dataset import Dataset
+# from hdx.utilities.easy_logging import setup_logging
+# from hdx.api.configuration import Configuration
+# from hdx.facades.simple import facade
 
-setup_logging()
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 #initialize HDX configuration
+#setup_logging()
 #Configuration.create(hdx_site="prod", user_agent="DSWFProject", hdx_read_only=True)
-
 
 load_dotenv()
 key1 = os.environ.get('DETA_PROJECT_KEY')
 key2 = os.environ.get('GEOJSON_KEY')
 
 wfp = pd.read_csv('assets/wfp_countries_global_1.csv')
-world = gpd.read_feather('assets/worldmap.feather') 
+world = gpd.read_feather('assets/worldmap.feather', columns=['sovereignt', 'sov_a3', 'level', 'adm0_iso', 'admin', 'name', 'name_long', 'brk_a3', 'brk_name', 'abbrev', 'geometry'])
 
-def read_data_from_hdx(data:str):
+
+def read_data_from_hdx(data: str):
   """
   Retrieves information about food prices of a particular country from HDX.
 
@@ -38,21 +38,23 @@ def read_data_from_hdx(data:str):
   An HDX object containing retrieved HDX information (if successful) and a dictionary containing specific data from the dataset related to the provided 'data'.
   """
   #attempt to read data in the wfp hdx via wpf
+  hdxinfo = None
   assert data in wfp['directory'].values, f"Data '{data}' is not located inside the dataset"
+
   try:
-    hdxinfo = Dataset.read_from_hdx(data) #read the data via the api
-  except:
-    logger.error("Could not get data or resource")
+    hdxinfo = Dataset.read_from_hdx(data)  #read the data via the api
+  except Exception as e:
+    logger.error(f"Could not get data or resource {e}")
   else:
     logger.info(f"Getting data from 'https://https://data.humdata.org/dataset/{data}'")
 
-  hdxinfo.set_expected_update_frequency('every week')
-  
+  #hdxinfo.set_expected_update_frequency('every week')
+
   #return the referenced data about the country
   return hdxinfo
 
 
-def put_DB(data:str):   
+def put_DB(data: str, base):
   """
   Inserts data from the specified source into the provided database base.
 
@@ -70,7 +72,7 @@ def put_DB(data:str):
   Raises:
   - If the data retrieval fails or the extracted information is empty, it raises an error.
   """
-  hdxinfo = read_data(data)
+  hdxinfo = read_data_from_hdx(data)
   hdxres = hdxinfo.get_resources()
   hdxdic = {}
   hdxdic['Id'] = hdxinfo['id']
@@ -85,25 +87,27 @@ def put_DB(data:str):
   hdxdic['File_name'] = os.path.basename(hdxres[0]['download_url'])
 
   if hdxdic:
-    dbase.put(data=hdxdic)
+    base.put(data=hdxdic)
     logger.info(f'Included {data} inside database')
   else:
     logger.error(f'Could not insert {data} into database')
 
 
 class CountryData:
-  def __init__(self, key:str):
+
+  def __init__(self, key: str):
     #open the database
     detas = Deta(key1)
     detam = Deta(key2)
     #access the content of the wfp data and shapefiles
-    self.__key = key #key to database record 
+    self.__key = key  #key to database record
     self.__base = detas.Base('WFPDatabase')
     self.__maps = detam.Drive('GeoJSON')
     fetch = self.__base.fetch().items
     #ensure that the key input is valid
-    assert key in [item['key'] for _, item in enumerate(fetch)], f"Not found. Unknown key"
-      
+    assert key in [item['key']
+                   for _, item in enumerate(fetch)], f"Not found. Unknown key"
+
   def __get_DB(self):
     """
     Utilises the GET method in order to get a data from the database using the key.
@@ -142,9 +146,8 @@ class CountryData:
 
     #   data.extend([item for item in fetch if item['Country_id'] == name])
     # return data
-    
-  #static method to return data as objects
 
+  #static method to return data as objects
   @classmethod
   def get_some_countries(cls, iso):
     """
@@ -160,12 +163,11 @@ class CountryData:
     data = cls.__get_some_DB(iso)
     dict_wfp = {}
     for d in data:
-    #represent everything as an object of CountryData
+      #represent everything as an object of CountryData
       country_obj = CountryData(d['key'])
       dict_wfp[d['Country_id']] = country_obj
     #put everything into a list of objects
     return dict_wfp
-
 
   #yield content from the dataset's download url
   def __get_data_from_link(self):
@@ -176,13 +178,11 @@ class CountryData:
     str: Content from the dataset's download URL in UTF-8 format.
     """
     item = self.__get_DB()
-    response = requests.get(url=item['Download_URL'], params={"downloadformat":"csv"})
+    response = requests.get(url=item['Download_URL'], params={"downloadformat": "csv"})
     yield response.content.decode('utf-8')
-      
 
-  #after yielding the content from the url, generate the data
-  #and read it as a pandas dataframe
-  
+  #after yielding the content from the url, generate the data and read it as a pandas dataframe
+
   def read_dataframe(self):
     """
     Reads the fetched data as a pandas DataFrame.
@@ -197,13 +197,25 @@ class CountryData:
     df = df.reset_index(drop=True)
     return df
 
+  def read_dataframe(self):
+    """
+    Reads the fetched data as a pandas DataFrame.
+    Returns:
+    pandas.DataFrame: DataFrame containing the fetched data.
+    """
+    gen = self.__get_data_from_link()
+    for con in gen:
+      content = StringIO(con)
+    df = pd.read_csv(content).drop(index=0)  #remove description
+    df = df.reset_index(drop=True)  #reset index
+    return df
 
   def read_datatable(self):
     """
-    Reads the fetched data as a pandas DataFrame.
+    Reads the fetched data as a datatable.
 
     Returns:
-    pandas.DataFrame: DataFrame containing the fetched data.
+    datatable containing the fetched data.
     """
     gen = self.__get_data_from_link()
     for con in gen:
@@ -211,7 +223,6 @@ class CountryData:
     Dt = dt.fread(content)
     return Dt
 
-  
   #get country code
   def get_country_code(self):
     """
@@ -223,7 +234,6 @@ class CountryData:
     item = self.__get_DB()
     return item['Country_id']
 
-  
   #Get dataset's reference period from hdx
   def get_ref_period(self):
     """
@@ -233,9 +243,9 @@ class CountryData:
     dict: The reference period of the dataset.
     """
     item = self.__get_DB()
-    
-    read_item = Dataset.read_from_hdx(item['Name']) #get data from HDX
-    read_item.set_expected_update_frequency('every week') #updated
+
+    read_item = Dataset.read_from_hdx(item['Name'])  #get data from HDX
+    read_item.set_expected_update_frequency('every week')  #updated
     return read_item.get_reference_period()
 
   def __get_map(self):
@@ -263,11 +273,10 @@ class CountryData:
     # Iterate through the list of files
     for country_file in mapfiles:
       # Check if country is found, extract the content of the file using get()
-        if country_code.upper() in country_file:
-          get_country_file = self.__maps.get(country_file).read()
-          yield get_country_file
+      if country_code.upper() in country_file:
+        get_country_file = self.__maps.get(country_file).read()
+        yield get_country_file
 
-    
   def read_map(self):
     """
     After getting the json shapefiles using __get_map(country_code), this function will decode the content as a string.
@@ -284,4 +293,3 @@ class CountryData:
       map_df = StringIO(decoded)
     # return a dataframe
     return gpd.read_file(map_df)
-      

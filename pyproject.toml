@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "python-template"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.10.0,<3.11"
+plotly = "^5.18.0"
+dash = "^2.14.2"
+pandas = "^2.2.0"
+datatable = "^1.1.0"
+requests = "^2.31.0"
+geopandas = "^0.14.2"
+deta = "^1.2.0"
+python-dotenv = "^1.0.0"
+hdx-python-api = "^6.2.1"
+quantulum3 = {extras = ["classifier"], version = "^0.9.0"}
+pyarrow = "^15.0.0"
+ipython = "^8.20.0"
+hdx-python-utilities = "^3.6.4"
+nbformat = "^5.9.2"
+
+[tool.pyright]
+# https://github.com/microsoft/pyright/blob/main/docs/configuration.md
+useLibraryCodeForTypes = true
+exclude = [".cache"]
+
+[tool.ruff]
+# https://beta.ruff.rs/docs/configuration/
+select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
+ignore = ['W291', 'W292', 'W293']
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
