@@ -23,7 +23,7 @@ load_dotenv()
 key1 = os.environ.get('DETA_PROJECT_KEY')
 key2 = os.environ.get('GEOJSON_KEY')
 
-wfp = pd.read_csv('assets/wfp_countries_global_1.csv')
+wfp = pd.read_csv('assets/wfp_countries_global_2.csv', usecols=['directory'])
 world = gpd.read_feather('assets/worldmap.feather', columns=['sovereignt', 'sov_a3', 'level', 'adm0_iso', 'admin', 'name', 'name_long', 'brk_a3', 'brk_name', 'abbrev', 'geometry'])
 
 
@@ -39,7 +39,7 @@ def read_data_from_hdx(data: str):
   """
   #attempt to read data in the wfp hdx via wpf
   hdxinfo = None
-  assert data in wfp['directory'].values, f"Data '{data}' is not located inside the dataset"
+  assert data in wfp.values, f"Data '{data}' is not located inside the dataset"
 
   try:
     hdxinfo = Dataset.read_from_hdx(data)  #read the data via the api
@@ -182,20 +182,6 @@ class CountryData:
     yield response.content.decode('utf-8')
 
   #after yielding the content from the url, generate the data and read it as a pandas dataframe
-
-  def read_dataframe(self):
-    """
-    Reads the fetched data as a pandas DataFrame.
-    
-    Returns:
-    pandas.DataFrame: DataFrame containing the fetched data.
-    """
-    gen = self.__get_data_from_link()
-    for con in gen:
-      content = StringIO(con)
-    df = pd.read_csv(content).drop(index=0)
-    df = df.reset_index(drop=True)
-    return df
 
   def read_dataframe(self):
     """
