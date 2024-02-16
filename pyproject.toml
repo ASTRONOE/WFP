@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "python-template"
+name = "WFP Food PricesTracker"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "An analytical application that tracks prices of produce across the world"
+authors = ["Truse Diffa <diffabitrus55@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4"
@@ -24,6 +24,9 @@ dash-daq = "^0.5.0"
 dash-bootstrap-components = "^1.5.0"
 flask-caching = "^2.1.0"
 cachetools = "^5.3.2"
+jupyter = "^1.0.0"
+dash-mantine-components = "^0.12.1"
+celery = "^5.3.6"
 
 [tool.pyright]
 # https://github.com/microsoft/pyright/blob/main/docs/configuration.md

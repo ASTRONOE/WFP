@@ -1,25 +1,37 @@
+# import libraries
 import dash
 import plotly.express as px
+import json
 import plotly.graph_objects as go
 import plotly.io as pio
 import countryapi
 import pandas as pd
 import geopandas as gpd
-from countryapi import CountryData
-from dash import Dash, dcc, html, Input, Output, callback
+import dash_daq as daq
 from flask_caching import Cache
+from countryapi import CountryData
+from dash import Dash, dcc, html, Input, Output, Patch, callback
 
-
+# set up app
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-app = Dash(__name__, external_stylesheets=external_stylesheets)
 pio.renderers.default = "browser+iframe+iframe_connected"
-
-
-cache_config = Cache(
-    config={"DEBUG": True, "CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 300}
+app = Dash(
+    __name__,
+    title="Global Food Price Tracker and Explorer",
+    external_stylesheets=external_stylesheets,
 )
-cache_config.init_app(app.server)
 
+# flask cache_config
+cache = Cache(
+    config={
+        "CACHE_TYPE": "FileSystemCache",
+        "CACHE_DIR": "cache-directory",
+        "CACHE_THRESHOLD": 200,
+    },
+)
+cache.init_app(app.server)
+
+# load data
 wfp = pd.read_csv("assets/wfp_countries_global_2.csv", usecols=["countryiso3"])
 world = gpd.read_feather(
     "assets/worldmap.feather",
@@ -38,15 +50,16 @@ world = gpd.read_feather(
     ],
 )
 
+
 all_countriesIso = list(wfp["countryiso3"])
 all_countriesObj = CountryData.get_some_countries(all_countriesIso)
+
+# filter world map based on ISO codes
 iso_codes = list(all_countriesObj.keys())
-
-
-# Filter world map based on ISO codes
 filtered_world = world[world["adm0_iso"].isin(iso_codes)]
 remaining_world = world[~world["adm0_iso"].isin(iso_codes)]
 
+# prepare figure
 fig_globe = go.Figure()
 fig_globe.add_traces(
     [
@@ -67,9 +80,6 @@ fig_globe.add_traces(
     ]
 )
 
-fig_globe.update_geos(projection_type="mercator", fitbounds="geojson")
-fig_globe.update_layout(autosize=False, height=1800, width=1400)
-
 
 app.layout = html.Div(
     children=[
@@ -83,8 +93,24 @@ app.layout = html.Div(
                 html.Hr(),
             ]
         ),
-        html.Div(children=[dcc.Graph(figure=fig_globe)]),
+        html.Main(
+            children=[
+                dcc.Graph(id="world-map", figure=fig_globe),
+                daq.BooleanSwitch(id="projection-switch", on=True),
+            ]
+        ),
     ]
 )
+
+
+@cache.memoize(100)
+@callback(
+    Output("world-map", "figure"), Input("projection-switch", "on"),
+)
+def load_world_map(on: bool):
+    projection = "mercator" if on else "orthographic"
+    fig_globe.update_geos(projection_type=projection, fitbounds="geojson")
+    return fig_globe
+
 
 app.run(debug=True)
